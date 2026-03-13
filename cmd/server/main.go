@@ -3,25 +3,11 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 
 	pb "github.com/anylepride/wallet/proto/wallet"
-	"github.com/anylepride/wallet/wallet"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
-
-type server struct {
-	pb.UnimplementedWalletServiceServer
-	mu      sync.RWMutex
-	wallets map[string]*wallet.Wallet
-}
-
-func NewServer() *server {
-	return &server{
-		wallets: make(map[string]*wallet.Wallet),
-	}
-}
 
 func main() {
 	grpcServer := grpc.NewServer()
@@ -30,12 +16,17 @@ func main() {
 
 	reflection.Register(grpcServer)
 
-	ln, err := net.Listen("tcp", ":8000")
+	addr := getGrpcAddr()
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	log.Println("grpc server listening on :8000")
+	log.Printf("grpc server listening on %v\n", addr)
+
+	er := newEtcdRegister(addr)
+	defer er.unregister(er.leaseId)
+
 	if err := grpcServer.Serve(ln); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

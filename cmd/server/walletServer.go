@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"sync"
 
 	pb "github.com/anylepride/wallet/proto/wallet"
 	"github.com/anylepride/wallet/wallet"
@@ -11,7 +12,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *server) GenerateWallet(ctx context.Context, req *pb.CreateWalletReq) (*pb.CreateWalletResponse, error) {
+type Server struct {
+	pb.UnimplementedWalletServiceServer
+	mu      sync.RWMutex
+	wallets map[string]*wallet.Wallet
+}
+
+func NewServer() *Server {
+	return &Server{
+		wallets: make(map[string]*wallet.Wallet),
+	}
+}
+
+func (s *Server) GenerateWallet(ctx context.Context, req *pb.CreateWalletReq) (*pb.CreateWalletResponse, error) {
 	walletId := uuid.New().String()
 	w := wallet.NewWallet(walletId)
 
@@ -21,7 +34,7 @@ func (s *server) GenerateWallet(ctx context.Context, req *pb.CreateWalletReq) (*
 	return &pb.CreateWalletResponse{WalletId: walletId}, nil
 }
 
-func (s *server) QueryWalletBalance(ctx context.Context, req *pb.QueryWalletReq) (*pb.QueryWalletResponse, error) {
+func (s *Server) QueryWalletBalance(ctx context.Context, req *pb.QueryWalletReq) (*pb.QueryWalletResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -34,7 +47,7 @@ func (s *server) QueryWalletBalance(ctx context.Context, req *pb.QueryWalletReq)
 	return &pb.QueryWalletResponse{WalletId: w.GetWalletId(), Balance: w.GetBalance()}, nil
 }
 
-func (s *server) TransferWalletBalance(ctx context.Context, req *pb.TransferWalletReq) (*pb.TransferWalletResponse, error) {
+func (s *Server) TransferWalletBalance(ctx context.Context, req *pb.TransferWalletReq) (*pb.TransferWalletResponse, error) {
 	if req.SrcWalletId == "" || req.DestWalletId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid srcWalletId or destWalletId, %v %v", req.SrcWalletId, req.DestWalletId)
 	}

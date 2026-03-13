@@ -8,7 +8,6 @@ import (
 	pb "github.com/anylepride/wallet/proto/wallet"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -16,13 +15,20 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	mux := runtime.NewServeMux()
+	d := newDiscovery()
+	defer d.stop()
 
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	grpcConn, err := d.newGrpcConn()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	err := pb.RegisterWalletServiceHandlerFromEndpoint(ctx, mux, "localhost:8000", opts)
+	defer func(grpcConn *grpc.ClientConn) {
+		_ = grpcConn.Close()
+	}(grpcConn)
+
+	mux := runtime.NewServeMux()
+	err = pb.RegisterWalletServiceHandler(ctx, mux, grpcConn)
 	if err != nil {
 		log.Fatalf("failed to register wallet service handler: %v", err)
 	}
