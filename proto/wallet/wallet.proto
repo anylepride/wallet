@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package wallet;
+import "google/api/annotations.proto";
+option go_package = "./;wallet";
+
+message CreateWalletReq{
+
+}
+
+message CreateWalletResponse{
+  int64 result = 1;
+  string err_msg = 2;
+  string walletId = 3; // 唯一钱包id
+}
+
+message QueryWalletReq{
+  string walletId = 1;
+}
+
+message QueryWalletResponse{
+  int64 result = 1;
+  string err_msg = 2;
+  string walletId = 3;
+  double balance = 4;
+}
+
+message TransferWalletReq{
+  string srcWalletId = 1;
+  string destWalletId = 2;
+  double balance = 3;
+}
+
+message TransferWalletResponse{
+  int64 result = 1;
+  string err_msg = 2;
+}
+
+service WalletService{
+  // 生成钱包id
+  rpc GenerateWallet(CreateWalletReq) returns (CreateWalletResponse) {
+    option (google.api.http) = {
+      post: "/wallets"
+      body: "*"
+    };
+  }
+
+  // 查询钱包余额
+  rpc QueryWalletBalance(QueryWalletReq) returns (QueryWalletResponse) {
+    option (google.api.http) = {
+      get: "/wallets/{walletId}"
+    };
+  }
+
+  // 转账
+  rpc TransferWalletBalance(TransferWalletReq) returns (TransferWalletResponse) {
+    option (google.api.http) = {
+      post: "/wallets/transfer"
+      body: "*"
+    };
+  }
+}
